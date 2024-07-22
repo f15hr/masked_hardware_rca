@@ -21,15 +21,12 @@
 
 /* generate_shares
 *
-* parameters:
-*	NSHARES (default = 3): Number of random shares to generate.
-*	SHARE_LEN (default = 1): Length of each share.
+* @param NSHARES (default = 3): Number of random shares to generate.
+* @param SHARE_LEN (default = 1): Length of each share.
 *
-* input:
-* 	in, input value of length SHARE_LEN.
-* output:
-* 	shares, NSHARES random shares of length SHARE_LEN.
+* @input in, input value of length SHARE_LEN.
 *
+* @output shares, NSHARES random shares of length SHARE_LEN.
 */
 module generate_shares
 #(
@@ -56,6 +53,15 @@ module generate_shares
 
 endmodule: generate_shares
 
+/* masked_xor
+*
+* @param NSHARES (default = 3): Number of random shares to XOR.
+* @param SHARE_LEN (default = 1): Length of each share.
+*
+* @input a, b, logic vectors of SHARE_LEN length to be XOR'd
+*
+* @output z, logic vector of SHARE_LEN legnth, equal to a XOR b.
+*/
 module masked_xor
 #(
 	parameter NSHARES = 3,
@@ -80,6 +86,15 @@ module masked_xor
 
 endmodule: masked_xor
 
+/* masked_and
+*
+* @param NSHARES (default = 3): Number of random shares to AND.
+* @param SHARE_LEN (default = 1): Length of each share.
+*
+* @input a, b, logic vectors of SHARE_LEN length to be AND'd
+*
+* @output z, logic vector of SHARE_LEN legnth, equal to a AND b.
+*/
 module masked_and
 #(
 	parameter NSHARES = 3,
@@ -109,7 +124,18 @@ module masked_and
 
 endmodule: masked_and
 
-
+/* masked_full_adder
+* Masked full adder designed to function as ripple carry.
+*
+* @param NSHARES (default = 3): Number of random shares to ADD.
+*
+* @input a, b, logic wires to be added.
+* @input cin, carry in to be added to a and b.
+*
+* @output sum, logic wire, equal to a XOR b XOR c the sum of a, b, and cin.
+* @output cout, logic wire, equal to a AND b XOR a AND c XOR b AND c. The
+* carry of a plus b.
+*/
 module masked_full_adder 
 #(
 	parameter NSHARES = 3
@@ -140,6 +166,18 @@ module masked_full_adder
 
 endmodule: masked_full_adder
 
+/* masked_rca
+* Masked ripple carry adder build of rca masked full adder.
+* 
+* @param WIDTH (default = 64) Length of input numbers to be added.
+* @param NSHARES (default = 3) Number of random shares to ADD.
+*
+* @input a, b, logic vectors of WIDTH to be added.
+* @input cin, carry in to be added to a and b.
+*
+* @output sum, logic vector of WIDTH, equal to a plus b plus cin.
+* @output cout, logic wire. The carry of a plus b.
+*/
 module masked_rca 
 #(
 	parameter WIDTH = 64,
@@ -173,6 +211,11 @@ module masked_rca
 
 endmodule: masked_rca
 
+/* top
+*
+* @input +a=, +b=, +cin=, Values a and b of length "WIDTH" to add,
+* plus cin for the carry.
+*/
 module top;
 	parameter WIDTH = 64;
 	parameter NSHARES = 3;
