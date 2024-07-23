@@ -18,6 +18,24 @@
 *    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+/* random_gen
+*
+* @param SHARE_LEN (default = 1): Length of random values.
+* 
+* @output out, random number of length SHARE_LEN between 0 and 2^SHARE_LEN - 1
+*/
+module random_gen
+#(
+	parameter SHARE_LEN = 1
+)
+(
+	output logic [SHARE_LEN-1:0] out
+);
+
+	assign out = (SHARE_LEN)'($urandom_range(0, (2^SHARE_LEN)-1));
+
+endmodule: random_gen
+
 
 /* generate_shares
 *
@@ -38,19 +56,23 @@ module generate_shares
 	output logic [SHARE_LEN-1:0] shares[NSHARES-1:0]
 );
 
-	always_comb begin
-		
-		logic [SHARE_LEN-1:0] final_share = in;
+	logic [SHARE_LEN-1:0] rand_val[NSHARES-1:0];
+	genvar i;
+	generate
+		for (i = 0; i < NSHARES-1; i++) begin : random_num_generation
+			random_gen #(SHARE_LEN) gen1 (rand_val[i]);
 
-		for (int i = 0; i < NSHARES-1; i++) begin
-			shares[i] = (SHARE_LEN)'($urandom_range(0,(2^SHARE_LEN)-1));
+		end
+	endgenerate
+
+	always_comb begin
+		logic [SHARE_LEN-1:0] final_share = in;
+		for(int i = 0; i < NSHARES-1; i++) begin
+			shares[i] = rand_val[i];
 			final_share ^= shares[i];
 		end
-		
 		shares[NSHARES-1] = final_share;
-
 	end
-
 endmodule: generate_shares
 
 /* masked_xor
