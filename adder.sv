@@ -18,6 +18,26 @@
 *    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+module entropy_gen
+#(
+	parameter NSHARES = 3
+)
+(
+	input logic [((NSHARES-1)*14)-1:0] seed,
+	output logic [((NSHARES-1)*14)-1:0] entropy
+);
+	logic xor_temp;
+	logic [((NSHARES-1)*14)-1:0]shift_temp;
+
+	// basic for now
+	assign xor_temp = seed[((NSHARES-1)*14)-1];
+	assign shift_temp = seed << 1;
+	assign entropy[((NSHARES-1)*14)-1:1] = shift_temp[((NSHARES-1)*14)-1:1];
+	assign entropy[0] = xor_temp;
+
+
+endmodule: entropy_gen
+
 /* generate_shares
 *
 * @param NSHARES (default = 3): Number of random shares to generate.
@@ -33,11 +53,11 @@ module generate_shares
 		  SHARE_LEN = 1
 )
 (
-	input logic [NSHARES-1:0] entropy,
+	input logic [NSHARES-2:0] entropy,
 	input logic [SHARE_LEN-1:0] in,
 	output logic [SHARE_LEN-1:0] shares[NSHARES-1:0]
-);
 
+);
 	always_comb begin
 		automatic logic [SHARE_LEN-1:0] final_share = in;
 		for(int i = 0; i < NSHARES-1; i++) begin
@@ -63,15 +83,15 @@ module masked_xor
 		  SHARE_LEN = 1
 )
 (
-	input logic [NSHARES-1:0] entropy [1:0],
+	input logic [((NSHARES-1)*2)-1:0] entropy,
         input logic [SHARE_LEN-1:0] a, b,
         output logic [SHARE_LEN-1:0] z
 );
 
 	logic [SHARE_LEN-1:0] ashares[NSHARES-1:0], bshares[NSHARES-1:0];
 
-	generate_shares #(NSHARES, SHARE_LEN) gena(entropy[0], a, ashares);
-	generate_shares #(NSHARES, SHARE_LEN) genb(entropy[1], b, bshares);
+	generate_shares #(NSHARES, SHARE_LEN) gena(entropy[((NSHARES-1)*2)-1:NSHARES-1], a, ashares);
+	generate_shares #(NSHARES, SHARE_LEN) genb(entropy[NSHARES-2:0], b, bshares);
 	
 	always_comb begin
         	z = 0;
@@ -98,17 +118,18 @@ module masked_and
 )
 
 (
- 	input logic [NSHARES-1:0] entropy [1:0],
+	input logic [((NSHARES-1)*2)-1:0] entropy,
         input logic [SHARE_LEN-1:0] a, b,
         output logic [SHARE_LEN-1:0] z
+
 
 );
 	logic [SHARE_LEN-1:0] ashares[NSHARES-1:0], bshares[NSHARES-1:0];
 
-	generate_shares #(NSHARES, SHARE_LEN) gena(entropy[0], a, ashares);
-	generate_shares #(NSHARES, SHARE_LEN) genb(entropy[1], b, bshares);
+	generate_shares #(NSHARES, SHARE_LEN) gena(entropy[((NSHARES-1)*2)-1:NSHARES-1], a, ashares);
+	generate_shares #(NSHARES, SHARE_LEN) genb(entropy[NSHARES-2:0], b, bshares);       
 
-        always_comb begin
+	always_comb begin
 		z = 0;
 
 		for(int i = 0; i < NSHARES; i++) begin
@@ -138,7 +159,7 @@ module masked_full_adder
 	parameter NSHARES = 3
 )
 (	
-	input logic [NSHARES-1:0] entropy [6:0] [1:0],
+	input logic [((NSHARES-1)*14)-1:0]entropy,
 	input logic a, b,
 	input logic cin,
 	output logic sum,
@@ -147,18 +168,65 @@ module masked_full_adder
 
 	logic aXORb, axbXORc, carry;
 
-	masked_xor #(NSHARES) xor1(.entropy(entropy[0]),.a(a), .b(b), .z(aXORb));
-	masked_xor #(NSHARES) xor2(.entropy(entropy[1]),.a(aXORb), .b(cin), .z(axbXORc));
+	masked_xor #(NSHARES) xor1
+	(
+		.entropy(entropy[((NSHARES-1)*14)-1:(NSHARES-1)*12]), 
+		.a(a), 
+		.b(b), 
+		.z(aXORb)
+	);
+	
+	masked_xor #(NSHARES) xor2
+	(
+		.entropy(entropy[((NSHARES-1)*12)-1:(NSHARES-1)*10]), 
+		.a(aXORb), 
+		.b(cin), 
+		.z(axbXORc)
+	);
 
 	assign sum = axbXORc;
 
 	logic aANDb, aANDc, bANDc, abXac, abXacXbc;
 
-	masked_and #(NSHARES) and1(.entropy(entropy[2]),.a(a), .b(b), .z(aANDb));
-	masked_and #(NSHARES) and2(.entropy(entropy[3]),.a(a), .b(cin), .z(aANDc));
-	masked_and #(NSHARES) and3(.entropy(entropy[4]),.a(b), .b(cin), .z(bANDc));
-	masked_xor #(NSHARES) xor3(.entropy(entropy[5]),.a(aANDb), .b(aANDc), .z(abXac));
-	masked_xor #(NSHARES) xor4(.entropy(entropy[6]),.a(abXac), .b(bANDc), .z(abXacXbc));
+	masked_and #(NSHARES) and1
+	(
+		.entropy(entropy[((NSHARES-1)*10)-1:(NSHARES-1)*8]), 
+		.a(a), 
+		.b(b), 
+		.z(aANDb)
+	);
+	
+	masked_and #(NSHARES) and2
+	(
+		.entropy(entropy[((NSHARES-1)*8)-1:(NSHARES-1)*6]), 
+		.a(a), 
+		.b(cin), 
+		.z(aANDc)
+	);
+
+	masked_and #(NSHARES) and3
+	(
+		.entropy(entropy[((NSHARES-1)*6)-1:(NSHARES-1)*4]), 
+		.a(b), 
+		.b(cin), 
+		.z(bANDc)
+	);
+	
+	masked_xor #(NSHARES) xor3
+	(
+		.entropy(entropy[((NSHARES-1)*4)-1:(NSHARES-1)*2]), 
+		.a(aANDb), 
+		.b(aANDc), 
+		.z(abXac)
+	);
+
+	masked_xor #(NSHARES) xor4
+	(
+		.entropy(entropy[((NSHARES-1)*2)-1:0]), 
+		.a(abXac), 
+		.b(bANDc), 
+		.z(abXacXbc)
+	);
 
 	assign cout = abXacXbc;
 
@@ -182,7 +250,7 @@ module masked_rca
 		  NSHARES = 3
 )
 (
-	input logic [NSHARES-1:0] entropy [WIDTH-1:0] [6:0] [1:0],
+	input logic [((NSHARES-1)*14)-1:0] seed,
 	input logic [WIDTH-1:0] a, b,
 	input logic cin,
 	output logic [WIDTH-1:0] sum,
@@ -190,15 +258,25 @@ module masked_rca
 );
 
 	logic [WIDTH:0] c;
+	logic [((NSHARES-1)*14)-1:0] entropy_temp [WIDTH:0];
 	assign c[0] = cin;
 	
 	genvar i;
 	generate
+        	
+		assign entropy_temp[0] = seed;
+
 		for (i = 0; i < (WIDTH); i++) begin : full_adder_loop
+			
+			entropy_gen #(NSHARES) gen
+			(
+				.seed(entropy_temp[i]), 
+				.entropy(entropy_temp[i+1])
+			);
+			
 			masked_full_adder #(NSHARES) mfa
 			(
-
-				.entropy(entropy[i]),
+				.entropy(entropy_temp[i+1]),
 				.a(a[i]),
 				.b(b[i]),
 				.cin(c[i]),
@@ -214,29 +292,22 @@ endmodule: masked_rca
 
 module top
 #(
-	parameter WIDTH = 64,
+	parameter WIDTH = 8,
 		  NSHARES = 3
 )
 (
-	input logic [14*WIDTH*(NSHARES-1)-1:0] entropy,
+	input logic [((NSHARES-1)*14)-1:0] seed,
 	input logic [WIDTH-1:0] a, b,
 	input logic cin,
 	output logic [WIDTH-1:0] sum,
 	output logic cout
 );
-
-	logic [NSHARES-1:0] entropy_sliced [WIDTH-1:0] [6:0] [1:0];
-	always_comb begin
-		for(int i = 0; i < 14*WIDTH*(NSHARES-1); i++) begin
-			entropy_sliced[i%WIDTH][i%7][i%2][i%(NSHARES-1)] = entropy[i];
-		end
-	end
-
+	
 	masked_rca #(
 		.WIDTH(WIDTH),
 		.NSHARES(NSHARES)
 	) masked_rca (
-	 	.entropy(entropy_sliced),
+		.seed(seed),
 		.a(a),
 	        .b(b),
 	        .cin(cin),
@@ -254,18 +325,18 @@ endmodule: top
 * plus cin for the carry.
 */
 module top_tb;
-	parameter WIDTH = 64;
+	parameter WIDTH = 8;
 	parameter NSHARES = 3;
 
+	logic [((NSHARES-1)*14)-1:0] seed;
 	logic [WIDTH-1:0] a, b;
-	logic [14*WIDTH*(NSHARES-1)-1:0] entropy;
 	logic cin;
 	logic [WIDTH-1:0] sum;
 	logic cout;
 
 	top #(.WIDTH(WIDTH), .NSHARES(NSHARES)) top1 
 	(
-		.entropy(entropy),
+		.seed(seed),
 		.a(a),
 		.b(b),
 		.cin(cin),
@@ -274,10 +345,7 @@ module top_tb;
 	);
 
 	initial begin
-		
-		for (int i = 0; i < 14*WIDTH*(NSHARES-1); i+=32) begin
-			entropy |= { {(14*WIDTH*(NSHARES-1)-32){1'b0}}, ($urandom_range(0,((2^(14*WIDTH*(NSHARES-1)-1)/32)-1)))}<<i;
-		end
+		assign seed = 2^(((NSHARES-1)*7)-1)-1;
 
 		$value$plusargs("a=%d", a);
 		$value$plusargs("b=%d", b);
