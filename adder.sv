@@ -42,7 +42,7 @@ module entropy_gen
 	logic [((NSHARES-1)*14)-1:0]shift_temp;
 
 	// basic for now
-	assign xor_temp = seed[((NSHARES-1)*14)-1];
+	assign xor_temp = seed[((NSHARES-1)*14)-1] ^ seed[0];
 	assign shift_temp = seed << 1;
 	assign entropy[((NSHARES-1)*14)-1:1] = shift_temp[((NSHARES-1)*14)-1:1];
 	assign entropy[0] = xor_temp;
@@ -69,7 +69,7 @@ module generate_shares
 (
 	input logic [NSHARES-2:0] entropy,
 	input logic [SHARE_LEN-1:0] in,
-	output logic [SHARE_LEN-1:0] shares[NSHARES-1:0]
+	output logic [SHARE_LEN-1:0] shares [NSHARES-1:0]
 
 );
 	always_comb begin
